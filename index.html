@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AppShots — App Store Screenshot Builder</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface2: #f0f0f2;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.22);
+    --text: #1d1d1f;
+    --text2: #6e6e73;
+    --text3: #aeaeb2;
+    --accent: #0071e3;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --surface: #1c1c1e;
+      --surface2: #2c2c2e;
+      --border: rgba(255,255,255,0.10);
+      --border2: rgba(255,255,255,0.20);
+      --text: #f5f5f7;
+      --text2: #aeaeb2;
+      --text3: #636366;
+    }
+  }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* Header */
+  .header { background: rgba(255,255,255,0.72); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 0.5px solid var(--border); padding: 0 32px; height: 52px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  @media (prefers-color-scheme: dark) { .header { background: rgba(28,28,30,0.80); } }
+  .header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+  .header-subtitle { font-size: 12px; color: var(--text2); margin-left: 10px; }
+  .header-right { display: flex; gap: 8px; align-items: center; }
+
+  /* Layout */
+  .main { display: grid; grid-template-columns: 1fr 260px; gap: 0; height: calc(100vh - 52px); }
+  .canvas-area { display: flex; flex-direction: column; padding: 24px 28px; gap: 20px; overflow-y: auto; }
+  .sidebar { border-left: 0.5px solid var(--border); background: var(--surface); padding: 20px 18px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+
+  /* Buttons */
+  .btn { font-family: var(--font); font-size: 13px; padding: 6px 14px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: transparent; color: var(--text); cursor: pointer; transition: background 0.12s, color 0.12s; white-space: nowrap; }
+  .btn:hover { background: var(--surface2); }
+  .btn.active { background: var(--text); color: var(--bg); border-color: transparent; }
+  .btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
+  .btn.primary:hover { background: #0077ed; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-group { display: flex; gap: 6px; }
+
+  /* Device tabs */
+  .device-tabs { display: flex; gap: 4px; background: var(--surface2); padding: 3px; border-radius: var(--radius-sm); }
+  .device-tab { font-family: var(--font); font-size: 12px; padding: 4px 12px; border-radius: 6px; border: none; background: transparent; color: var(--text2); cursor: pointer; transition: all 0.12s; }
+  .device-tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+  /* Slide strip */
+  .strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+  .strip::-webkit-scrollbar { height: 4px; }
+  .strip::-webkit-scrollbar-track { background: transparent; }
+  .strip::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .thumb-wrap { position: relative; cursor: pointer; flex-shrink: 0; border-radius: var(--radius-sm); overflow: hidden; }
+  .thumb-wrap .thumb-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.45); color: #fff; font-size: 10px; font-family: var(--font); text-align: center; padding: 3px 0; }
+  .thumb-wrap .thumb-dl { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.55); color: #fff; border: none; border-radius: 5px; font-size: 11px; padding: 2px 7px; cursor: pointer; font-family: var(--font); display: none; }
+  .thumb-wrap:hover .thumb-dl { display: block; }
+  .thumb-wrap.selected { outline: 2.5px solid var(--accent); outline-offset: 2px; }
+
+  /* Preview area */
+  .preview-wrap { background: var(--surface2); border-radius: var(--radius-lg); border: 0.5px solid var(--border); display: flex; align-items: center; justify-content: center; flex: 1; min-height: 420px; padding: 24px; }
+  #preview { border-radius: 8px; max-width: 100%; max-height: 520px; display: block; }
+
+  /* Spec badge */
+  .spec-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); background: var(--surface2); padding: 3px 10px; border-radius: 20px; border: 0.5px solid var(--border); }
+  .spec-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  /* Sidebar sections */
+  .section-label { font-size: 11px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  textarea, input[type=text] {
+    font-family: var(--font); font-size: 13px; color: var(--text);
+    background: var(--surface2); border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm); padding: 7px 9px; resize: vertical;
+    width: 100%; outline: none;
+  }
+  textarea:focus, input[type=text]:focus { border-color: var(--accent); }
+
+  /* Swatches */
+  .swatches { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+  .swatch { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; transition: transform 0.1s; border: 1.5px solid transparent; }
+  .swatch:hover { transform: scale(1.18); }
+  .swatch.selected { border-color: var(--text); outline: 1.5px solid var(--bg); outline-offset: 0; }
+  input[type=color] { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border2); padding: 0; cursor: pointer; background: none; }
+
+  /* Image upload */
+  .upload-zone { border: 1px dashed var(--border2); border-radius: var(--radius-sm); padding: 14px; text-align: center; cursor: pointer; transition: border-color 0.12s, background 0.12s; }
+  .upload-zone:hover { border-color: var(--accent); background: rgba(0,113,227,0.04); }
+  .upload-zone input { display: none; }
+  .upload-zone-text { font-size: 12px; color: var(--text2); }
+  .upload-zone-hint { font-size: 11px; color: var(--text3); margin-top: 3px; }
+  .img-preview-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .img-preview-thumb { width: 36px; height: 60px; object-fit: cover; border-radius: 4px; border: 0.5px solid var(--border); }
+  .img-remove { font-size: 11px; color: #ff3b30; background: none; border: none; cursor: pointer; font-family: var(--font); }
+
+  /* Separator */
+  .sep { height: 0.5px; background: var(--border); margin: 4px 0; }
+
+  /* Export buttons */
+  .export-area { display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 10px; }
+  .progress { font-size: 11px; color: var(--text2); text-align: center; }
+
+  /* Scrollbar global */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── Pro / Ko-fi UI ───────────────────────────────────────────── */
+  .pro-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; padding: 3px 10px;
+    border-radius: 20px; cursor: default;
+  }
+  .pro-badge.free  { background: var(--surface2); color: var(--text2); border: 0.5px solid var(--border2); }
+  .pro-badge.pro   { background: #f0f7ff; color: #0071e3; border: 0.5px solid rgba(0,113,227,0.3); }
+  @media (prefers-color-scheme: dark) {
+    .pro-badge.pro { background: rgba(0,113,227,0.18); color: #4db0ff; border-color: rgba(77,176,255,0.3); }
+  }
+
+  /* Overlay backdrop */
+  .modal-bg {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.52); backdrop-filter: blur(8px);
+    z-index: 900; align-items: center; justify-content: center;
+  }
+  .modal-bg.open { display: flex; }
+
+  /* Modal card */
+  .modal-card {
+    background: var(--surface); border-radius: 20px;
+    border: 0.5px solid var(--border2);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.30);
+    padding: 32px 28px 28px;
+    width: 360px; max-width: 92vw;
+    display: flex; flex-direction: column; gap: 18px;
+    animation: modalIn 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes modalIn { from { opacity:0; transform:scale(0.88) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+
+  .modal-icon { font-size: 38px; text-align: center; line-height: 1; }
+  .modal-title { font-size: 20px; font-weight: 700; text-align: center; letter-spacing: -0.3px; }
+  .modal-desc  { font-size: 13px; color: var(--text2); text-align: center; line-height: 1.55; }
+
+  .modal-perks { display: flex; flex-direction: column; gap: 8px; }
+  .perk { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .perk-icon { width: 28px; height: 28px; border-radius: 8px; background: #f0f7ff; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  @media (prefers-color-scheme: dark) { .perk-icon { background: rgba(0,113,227,0.2); } }
+
+  .btn-kofi {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 13px; border-radius: 12px;
+    background: #FF5E5B; color: #fff; font-family: var(--font);
+    font-size: 15px; font-weight: 600; border: none; cursor: pointer;
+    transition: background 0.12s, transform 0.1s;
+    text-decoration: none;
+  }
+  .btn-kofi:hover { background: #e8504d; transform: translateY(-1px); }
+  .btn-kofi:active { transform: translateY(0); }
+
+  .divider-text { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text3); }
+  .divider-text::before, .divider-text::after { content:''; flex:1; height:0.5px; background: var(--border2); }
+
+  .unlock-row { display: flex; gap: 8px; }
+  .unlock-row input { flex:1; font-size: 13px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .unlock-row input::placeholder { text-transform: none; letter-spacing: 0; }
+  .unlock-error { font-size: 12px; color: #ff3b30; text-align: center; min-height: 16px; }
+
+  .modal-close-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text3); font-size: 18px; position: absolute;
+    top: 14px; right: 16px; padding: 4px; line-height: 1;
+    transition: color 0.1s;
+  }
+  .modal-close-btn:hover { color: var(--text); }
+
+  /* Exports counter badge */
+  .exports-count {
+    font-size: 11px; color: var(--text2);
+    background: var(--surface2); padding: 3px 10px;
+    border-radius: 20px; border: 0.5px solid var(--border);
+  }
+  .exports-count.warning { color: #ff9500; border-color: rgba(255,149,0,0.4); background: rgba(255,149,0,0.08); }
+</style>
+</head>
+<body>
+
+<!-- ── Ko-fi / Pro Modal ─────────────────────────────────────────── -->
+<div class="modal-bg" id="proModal" onclick="handleModalBgClick(event)">
+  <div class="modal-card" style="position:relative;">
+    <button class="modal-close-btn" onclick="closeModal()" title="Cerrar">✕</button>
+    <div class="modal-icon">☕</div>
+    <div class="modal-title">Desbloquea AppShots</div>
+    <div class="modal-desc" id="modalDesc">Apoya el proyecto con un café y exporta sin límites para siempre.</div>
+
+    <div class="modal-perks">
+      <div class="perk"><div class="perk-icon">♾️</div><span>Exportaciones ilimitadas, sin restricciones</span></div>
+      <div class="perk"><div class="perk-icon">📐</div><span>Todos los tamaños oficiales de App Store</span></div>
+      <div class="perk"><div class="perk-icon">🔒</div><span>Un solo pago — acceso de por vida</span></div>
+    </div>
+
+    <a class="btn-kofi" href="https://ko-fi.com/cesaribarra" target="_blank" rel="noopener">
+      ☕ &nbsp;Apoyar en Ko-fi — $9
+    </a>
+
+    <div class="divider-text">ya hice el pago</div>
+
+    <div class="unlock-row">
+      <input type="text" id="codeInput" placeholder="Ingresa tu código de activación" maxlength="30" autocomplete="off" spellcheck="false">
+      <button class="btn primary" onclick="activateCode()">Activar</button>
+    </div>
+    <div class="unlock-error" id="unlockError"></div>
+  </div>
+</div>
+
+<header class="header">
+  <div style="display:flex;align-items:center;gap:4px;">
+    <span class="header-title">AppShots</span>
+    <span class="header-subtitle">App Store Screenshot Builder</span>
+  </div>
+  <div class="header-right" style="gap:10px;">
+    <span class="exports-count" id="exportsCount"></span>
+    <span class="pro-badge free" id="proBadge" onclick="openModal()" style="cursor:pointer;" title="Ver planes">⚡ Free</span>
+    <div class="device-tabs" id="deviceTabs"></div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- Left: Canvas + Strip -->
+  <div class="canvas-area">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="strip" id="strip"></div>
+      <div id="specBadge" class="spec-badge" style="flex-shrink:0;margin-left:14px;">
+        <span class="spec-dot"></span>
+        <span id="specText"></span>
+      </div>
+    </div>
+    <div class="preview-wrap">
+      <canvas id="preview"></canvas>
+    </div>
+  </div>
+
+  <!-- Right: Sidebar -->
+  <div class="sidebar">
+    <div class="field">
+      <div class="section-label">Slide <span id="slideNum">1</span> de 5</div>
+    </div>
+
+    <div class="field">
+      <div class="section-label">Headline</div>
+      <textarea id="inpHeadline" rows="3" placeholder="Your app, at a glance"></textarea>
+      <span style="font-size:10px;color:var(--text3);">Usa \n para salto de línea</span>
+    </div>
+
+    <div class="field">
+      <div class="section-label">Subtítulo</div>
+      <textarea id="inpSubtitle" rows="2" placeholder="Everything in one place."></textarea>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="field">
+      <div class="section-label">Fondo</div>
+      <div class="swatches" id="bgSwatches"></div>
+    </div>
+
+    <div class="field">
+      <div class="section-label">Color de texto</div>
+      <div class="swatches" id="textSwatches"></div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="field">
+      <div class="section-label">Screenshot de la app</div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('imgInput').click()">
+        <input type="file" id="imgInput" accept="image/*">
+        <div class="upload-zone-text">Haz clic para subir</div>
+        <div class="upload-zone-hint">PNG · JPG · cualquier resolución</div>
+      </div>
+      <div id="imgPreviewRow" class="img-preview-row" style="display:none;">
+        <img id="imgThumb" class="img-preview-thumb" src="" alt="">
+        <button class="img-remove" onclick="removeImage()">✕ Quitar imagen</button>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="export-area">
+      <button class="btn primary" id="btnDlOne" onclick="exportSlide(selectedSlide)">↓ Descargar slide actual</button>
+      <button class="btn" id="btnDlAll" onclick="exportAll()">↓ Exportar los 5 slides</button>
+      <div class="progress" id="progress" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Data ─────────────────────────────────────────────────────────
+const DEVICES = {
+  // ── iPhone ────────────────────────────────────────────────────────
+  // Dynamic Island large (6.9" — iPhone 16 Pro Max / 15 Pro Max)
+  iphone69: { label: 'iPhone 6.9"', desc: '1320 × 2868 px', w: 1320, h: 2868, type: 'phone', required: false },
+  // Dynamic Island large (6.7" — iPhone 16 Plus / 15 Plus)
+  iphone67: { label: 'iPhone 6.7"', desc: '1290 × 2796 px', w: 1290, h: 2796, type: 'phone', required: false },
+  // Dynamic Island medium (6.3" ★ REQUIRED by App Store Connect)
+  iphone63: { label: 'iPhone 6.3" ★', desc: '1206 × 2622 px', w: 1206, h: 2622, type: 'phone', required: true },
+  // Face ID large (6.5" — iPhone 11 Pro Max / XS Max)
+  iphone65: { label: 'iPhone 6.5"', desc: '1242 × 2688 px', w: 1242, h: 2688, type: 'phone', required: false },
+  // Home button (5.5" — iPhone 8 Plus)
+  iphone55: { label: 'iPhone 5.5"', desc: '1242 × 2208 px', w: 1242, h: 2208, type: 'phone', required: false },
+  // ── iPad ──────────────────────────────────────────────────────────
+  // 13" ★ REQUIRED if app supports iPadOS
+  ipad13:   { label: 'iPad 13" ★',  desc: '2064 × 2752 px', w: 2064, h: 2752, type: 'tablet', required: true },
+  // 12.9" legacy (scaled from 13" if omitted)
+  ipad129:  { label: 'iPad 12.9"',  desc: '2048 × 2732 px', w: 2048, h: 2732, type: 'tablet', required: false },
+  // 11"
+  ipad11:   { label: 'iPad 11"',    desc: '1668 × 2388 px', w: 1668, h: 2388, type: 'tablet', required: false },
+};
+
+const BG_PRESETS = [
+  '#D6EAF8','#AED6F1','#85C1E9',
+  '#D5F5E3','#A9DFBF','#82E0AA',
+  '#FDEBD0','#FAD7A0','#F9E79F',
+  '#F5EEF8','#D7BDE2','#C39BD3',
+  '#FDEDEC','#F5B7B1',
+  '#EAECEE','#D5DBDB',
+  '#1a1a2e','#16213e','#1b4332','#2d6a4f',
+  '#1c1c1e','#000000',
+];
+
+const TEXT_PRESETS = [
+  '#0d2137','#15352a','#4a2200','#3a0a40',
+  '#1c1c1e','#ffffff','#f5f5f7','#aeaeb2',
+];
+
+const DEFAULT_SLIDES = [
+  { headline: 'Your app,\nat a glance',        subtitle: 'Everything you need in one beautiful place.', bg: '#D6EAF8', textColor: '#0d2137', screenshot: null },
+  { headline: 'Everything in\none place',       subtitle: 'All your data, beautifully organized.',       bg: '#D5F5E3', textColor: '#15352a', screenshot: null },
+  { headline: 'Track every change,\nbeautifully', subtitle: 'Stay on top of every update in real time.',  bg: '#FDEBD0', textColor: '#4a2200', screenshot: null },
+  { headline: 'Never miss\na thing',            subtitle: 'Smart notifications keep you informed.',      bg: '#F5EEF8', textColor: '#3a0a40', screenshot: null },
+  { headline: 'Try free for\n7 days',           subtitle: 'No commitment. Cancel anytime.',              bg: '#EBF5FB', textColor: '#0d2137', screenshot: null },
+];
+
+let device = 'iphone63'; // Default: iPhone 6.3" — REQUIRED by App Store Connect
+let slides = DEFAULT_SLIDES.map(s => ({ ...s }));
+let selectedSlide = 0;
+
+// ─── Canvas Renderer ───────────────────────────────────────────────
+function rrPath(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+async function renderSlide(canvas, slide, devKey) {
+  if (!canvas) return;
+  const spec = DEVICES[devKey];
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const isPhone = spec.type === 'phone';
+
+  ctx.clearRect(0, 0, W, H);
+
+  // ── Background ──────────────────────────────────────────────────
+  ctx.fillStyle = slide.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // ── Headline text ───────────────────────────────────────────────
+  const hFz = Math.round(W * (isPhone ? 0.078 : 0.056));
+  const hLh = hFz * 1.28;
+  const hLines = slide.headline.split('\\n').join('\n').split('\n');
+  const hTotalH = hLines.length * hLh;
+  const hAreaH = H * 0.195;
+  let hY = Math.max(H * 0.042, (hAreaH - hTotalH) / 2 + H * 0.022);
+
+  ctx.fillStyle = slide.textColor;
+  ctx.font = `600 ${hFz}px -apple-system, "SF Pro Display", Helvetica, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (const ln of hLines) { ctx.fillText(ln, W / 2, hY); hY += hLh; }
+
+  // ── iPhone 15 / iPad Frame ──────────────────────────────────────
+  const fW = W * (isPhone ? 0.65 : 0.80);
+
+  // Use realistic aspect ratio inside the screenshot
+  // (The frame represents how the phone looks physically — not full canvas ratio)
+  const fH = isPhone ? fW * 2.165 : fW * 1.334;
+  const fX = (W - fW) / 2;
+  const fY = H * 0.195;
+
+  // Corner radius — iPhone uses ~55pt on 393pt wide screen (real squircle)
+  const fR = fW * (isPhone ? 0.175 : 0.072);
+
+  // ─ Titanium/Aluminum edge ring ─
+  rrPath(ctx, fX - 1, fY - 1, fW + 2, fH + 2, fR + 1);
+  ctx.fillStyle = isPhone ? '#48484a' : '#3a3a3c';
+  ctx.fill();
+
+  // ─ Phone body (front face) ─
+  rrPath(ctx, fX, fY, fW, fH, fR);
+  ctx.fillStyle = '#1c1c1e';
+  ctx.fill();
+
+  // ─ Subtle specular on body edge ─
+  rrPath(ctx, fX, fY, fW, fH, fR);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = Math.max(1, fW * 0.004);
+  ctx.stroke();
+
+  // ── Screen area (thin uniform bezel, iPhone 15 style) ──────────
+  const bz = fW * (isPhone ? 0.019 : 0.022);  // bezel thickness
+  const sX = fX + bz, sY = fY + bz;
+  const sW = fW - bz * 2, sH = fH - bz * 2;
+  const sR = fR * 0.88;
+
+  // Screen background
+  rrPath(ctx, sX, sY, sW, sH, sR);
+  ctx.fillStyle = slide.screenshot ? '#000' : '#d8d8d8';
+  ctx.fill();
+
+  // ── Screenshot image ────────────────────────────────────────────
+  if (slide.screenshot) {
+    await new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        ctx.save();
+        rrPath(ctx, sX, sY, sW, sH, sR);
+        ctx.clip();
+        const ia = img.width / img.height, sa = sW / sH;
+        let dw, dh, dx, dy;
+        if (ia > sa) { dh = sH; dw = dh * ia; dx = sX - (dw - sW) / 2; dy = sY; }
+        else { dw = sW; dh = dw / ia; dx = sX; dy = sY - (dh - sH) / 2; }
+        ctx.drawImage(img, dx, dy, dw, dh);
+        ctx.restore();
+        resolve();
+      };
+      img.onerror = resolve;
+      img.src = slide.screenshot;
+    });
+  }
+
+  // ── Status bar ─────────────────────────────────────────────────
+  if (isPhone && !slide.screenshot) {
+    const sbY = sY + sH * 0.028;
+    const sbFz = Math.round(sW * 0.042);
+    ctx.font = `500 ${sbFz}px -apple-system, Helvetica, sans-serif`;
+    ctx.fillStyle = '#1c1c1e';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('9:41', sX + sW * 0.065, sbY);
+    // Battery icon (right side)
+    const batW = sW * 0.075, batH = sW * 0.032;
+    const batX = sX + sW * 0.88, batY = sbY - batH / 2;
+    rr(ctx, batX, batY, batW, batH, batH * 0.25);
+    ctx.fillStyle = '#1c1c1e'; ctx.fill();
+    rr(ctx, batX + batW * 0.08, batY + batH * 0.15, batW * 0.70, batH * 0.70, batH * 0.15);
+    ctx.fillStyle = '#f0f0f0'; ctx.fill();
+    // Signal dots
+    [0.68, 0.74, 0.80].forEach((x, i) => {
+      const dotR = sW * 0.014;
+      ctx.beginPath();
+      ctx.arc(sX + sW * x, sbY, dotR * (0.7 + i * 0.15), 0, Math.PI * 2);
+      ctx.fillStyle = '#1c1c1e'; ctx.fill();
+    });
+    ctx.textAlign = 'center';
+  }
+
+  // ── Dynamic Island (iPhone 15 style) ───────────────────────────
+  if (isPhone) {
+    // Outer pill
+    const diW = sW * 0.298;
+    const diH = sW * 0.078;
+    const diX = sX + (sW - diW) / 2;
+    const diY = sY + sH * 0.013;
+    rrPath(ctx, diX, diY, diW, diH, diH / 2);
+    ctx.fillStyle = '#000000';
+    ctx.fill();
+
+    // Inner glow (Face ID sensor dot)
+    ctx.beginPath();
+    ctx.arc(diX + diW * 0.80, diY + diH / 2, diH * 0.22, 0, Math.PI * 2);
+    ctx.fillStyle = '#111518';
+    ctx.fill();
+  }
+
+  // ── iPad front camera (landscape top center) ────────────────────
+  if (!isPhone) {
+    const cr = fW * 0.016;
+    ctx.beginPath();
+    ctx.arc(W / 2, fY + bz + cr * 1.1, cr, 0, Math.PI * 2);
+    ctx.fillStyle = '#2a2a2c';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(W / 2, fY + bz + cr * 1.1, cr * 0.50, 0, Math.PI * 2);
+    ctx.fillStyle = '#111518';
+    ctx.fill();
+    // Microphone dot beside camera
+    ctx.beginPath();
+    ctx.arc(W / 2 + cr * 2.4, fY + bz + cr * 1.1, cr * 0.28, 0, Math.PI * 2);
+    ctx.fillStyle = '#2a2a2c';
+    ctx.fill();
+  }
+
+  // ── iPhone side buttons ────────────────────────────────────────
+  if (isPhone) {
+    const bW = Math.max(2, fW * 0.009);
+    const bR = bW / 2;
+
+    // LEFT: Silent switch (small, upper left)
+    rrPath(ctx, fX - bW, fY + fH * 0.143, bW, fH * 0.040, bR);
+    ctx.fillStyle = '#3a3a3c'; ctx.fill();
+
+    // LEFT: Volume up
+    rrPath(ctx, fX - bW, fY + fH * 0.208, bW, fH * 0.078, bR);
+    ctx.fillStyle = '#3a3a3c'; ctx.fill();
+
+    // LEFT: Volume down
+    rrPath(ctx, fX - bW, fY + fH * 0.305, bW, fH * 0.078, bR);
+    ctx.fillStyle = '#3a3a3c'; ctx.fill();
+
+    // RIGHT: Power / Side button (taller on iPhone 15)
+    rrPath(ctx, fX + fW, fY + fH * 0.253, bW, fH * 0.118, bR);
+    ctx.fillStyle = '#3a3a3c'; ctx.fill();
+  }
+
+  // ── iPad buttons ───────────────────────────────────────────────
+  if (!isPhone) {
+    const bW = Math.max(2, fW * 0.008);
+    // Power on top
+    rrPath(ctx, fX + fW * 0.72, fY - bW, fW * 0.08, bW, bW / 2);
+    ctx.fillStyle = '#3a3a3c'; ctx.fill();
+    // Volume on top
+    rrPath(ctx, fX + fW * 0.52, fY - bW, fW * 0.06, bW, bW / 2);
+    ctx.fillStyle = '#3a3a3c'; ctx.fill();
+    rrPath(ctx, fX + fW * 0.60, fY - bW, fW * 0.06, bW, bW / 2);
+    ctx.fillStyle = '#3a3a3c'; ctx.fill();
+  }
+
+  // ── Home indicator bar ─────────────────────────────────────────
+  if (isPhone) {
+    const hiW = sW * 0.275;
+    const hiH = Math.max(2, sH * 0.004);
+    const hiX = sX + (sW - hiW) / 2;
+    const hiY = sY + sH - hiH - sH * 0.018;
+    rrPath(ctx, hiX, hiY, hiW, hiH, hiH / 2);
+    ctx.fillStyle = slide.screenshot ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.22)';
+    ctx.fill();
+  }
+
+  // ── Subtitle ───────────────────────────────────────────────────
+  const subY = fY + fH + H * 0.025;
+  if (slide.subtitle && slide.subtitle.trim() && subY < H * 0.92) {
+    const subFz = Math.round(W * (isPhone ? 0.040 : 0.030));
+    ctx.font = `400 ${subFz}px -apple-system, "SF Pro Text", Helvetica, sans-serif`;
+    ctx.fillStyle = slide.textColor;
+    ctx.globalAlpha = 0.72;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    const maxW = W * 0.78, slh = subFz * 1.50;
+    const words = slide.subtitle.split(' ');
+    let line = '', sy = subY;
+    for (const word of words) {
+      const test = line ? line + ' ' + word : word;
+      if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, W / 2, sy); line = word; sy += slh; }
+      else line = test;
+    }
+    if (line) ctx.fillText(line, W / 2, sy);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ─── Preview & Thumbnails ──────────────────────────────────────────
+function getPreviewSize() {
+  const spec = DEVICES[device];
+  const maxH = Math.min(520, window.innerHeight - 240);
+  const h = maxH;
+  return { w: Math.round(h * spec.w / spec.h), h };
+}
+
+function getThumbSize() {
+  const spec = DEVICES[device];
+  const h = 100;
+  return { w: Math.round(h * spec.w / spec.h), h };
+}
+
+let thumbCanvases = [];
+
+function drawPreview() {
+  const cv = document.getElementById('preview');
+  const { w, h } = getPreviewSize();
+  cv.width = w; cv.height = h;
+  renderSlide(cv, slides[selectedSlide], device);
+}
+
+function drawThumbs() {
+  const { w, h } = getThumbSize();
+  thumbCanvases.forEach((cv, i) => {
+    if (!cv) return;
+    cv.width = w; cv.height = h;
+    renderSlide(cv, slides[i], device);
+  });
+}
+
+function syncInputs() {
+  const sl = slides[selectedSlide];
+  document.getElementById('inpHeadline').value = sl.headline.split('\n').join('\\n');
+  document.getElementById('inpSubtitle').value = sl.subtitle;
+  document.getElementById('slideNum').textContent = selectedSlide + 1;
+
+  const imgRow = document.getElementById('imgPreviewRow');
+  const thumb = document.getElementById('imgThumb');
+  if (sl.screenshot) { imgRow.style.display = 'flex'; thumb.src = sl.screenshot; }
+  else { imgRow.style.display = 'none'; thumb.src = ''; }
+
+  document.querySelectorAll('#bgSwatches .swatch').forEach(el =>
+    el.classList.toggle('selected', el.dataset.c === sl.bg));
+  document.querySelector('#bgSwatches input[type=color]').value = sl.bg;
+
+  document.querySelectorAll('#textSwatches .swatch').forEach(el =>
+    el.classList.toggle('selected', el.dataset.c === sl.textColor));
+  document.querySelector('#textSwatches input[type=color]').value = sl.textColor;
+}
+
+function syncStrip() {
+  document.querySelectorAll('.thumb-wrap').forEach((el, i) =>
+    el.classList.toggle('selected', i === selectedSlide));
+}
+
+function syncDeviceTabs() {
+  document.querySelectorAll('.device-tab').forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.dev === device));
+  const spec = DEVICES[device];
+  document.getElementById('specText').textContent = spec.desc;
+  const badge = document.getElementById('specBadge');
+  const reqNote = document.getElementById('reqNote');
+  if (reqNote) reqNote.remove();
+  if (spec.required) {
+    const n = document.createElement('span');
+    n.id = 'reqNote';
+    n.style.cssText = 'font-size:10px;font-weight:600;color:#fff;background:#0071e3;padding:1px 6px;border-radius:10px;margin-left:4px;';
+    n.textContent = 'REQUERIDO';
+    badge.appendChild(n);
+  }
+}
+
+// ─── Build DOM ─────────────────────────────────────────────────────
+function buildSwatches(containerId, presets, field) {
+  const box = document.getElementById(containerId);
+  presets.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'swatch';
+    d.dataset.c = c;
+    d.style.background = c;
+    d.style.border = '1.5px solid rgba(0,0,0,0.12)';
+    d.title = c;
+    d.onclick = () => {
+      slides[selectedSlide][field] = c;
+      syncInputs(); drawPreview(); drawThumbs();
+    };
+    box.appendChild(d);
+  });
+  const picker = document.createElement('input');
+  picker.type = 'color';
+  picker.title = 'Color personalizado';
+  picker.oninput = e => {
+    slides[selectedSlide][field] = e.target.value;
+    syncInputs(); drawPreview(); drawThumbs();
+  };
+  box.appendChild(picker);
+}
+
+function buildUI() {
+  // Device tabs
+  const tabs = document.getElementById('deviceTabs');
+  Object.entries(DEVICES).forEach(([key, d]) => {
+    const btn = document.createElement('button');
+    btn.className = 'device-tab';
+    btn.dataset.dev = key;
+    btn.textContent = d.label;
+    btn.onclick = () => { device = key; syncDeviceTabs(); drawPreview(); drawThumbs(); };
+    tabs.appendChild(btn);
+  });
+
+  // Slide strip
+  const strip = document.getElementById('strip');
+  thumbCanvases = [];
+  slides.forEach((_, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'thumb-wrap';
+    wrap.onclick = () => { selectedSlide = i; syncInputs(); syncStrip(); drawPreview(); };
+
+    const cv = document.createElement('canvas');
+    cv.style.display = 'block';
+    cv.style.borderRadius = '6px';
+    thumbCanvases.push(cv);
+    wrap.appendChild(cv);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'thumb-overlay';
+    lbl.textContent = i + 1;
+    wrap.appendChild(lbl);
+
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'thumb-dl';
+    dlBtn.textContent = '↓';
+    dlBtn.title = 'Descargar';
+    dlBtn.onclick = e => { e.stopPropagation(); exportSlide(i); };
+    wrap.appendChild(dlBtn);
+
+    strip.appendChild(wrap);
+  });
+
+  buildSwatches('bgSwatches', BG_PRESETS, 'bg');
+  buildSwatches('textSwatches', TEXT_PRESETS, 'textColor');
+
+  // Text inputs
+  document.getElementById('inpHeadline').oninput = e => {
+    slides[selectedSlide].headline = e.target.value.split('\\n').join('\n');
+    drawPreview(); drawThumbs();
+  };
+  document.getElementById('inpSubtitle').oninput = e => {
+    slides[selectedSlide].subtitle = e.target.value;
+    drawPreview(); drawThumbs();
+  };
+
+  // Image upload
+  document.getElementById('imgInput').onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      slides[selectedSlide].screenshot = ev.target.result;
+      syncInputs(); drawPreview(); drawThumbs();
+    };
+    r.readAsDataURL(file);
+  };
+
+  // Drag & drop on upload zone
+  const zone = document.getElementById('uploadZone');
+  zone.ondragover = e => { e.preventDefault(); zone.style.borderColor = 'var(--accent)'; };
+  zone.ondragleave = () => { zone.style.borderColor = ''; };
+  zone.ondrop = e => {
+    e.preventDefault();
+    zone.style.borderColor = '';
+    const file = e.dataTransfer.files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      slides[selectedSlide].screenshot = ev.target.result;
+      syncInputs(); drawPreview(); drawThumbs();
+    };
+    r.readAsDataURL(file);
+  };
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+    if (e.key === 'ArrowLeft' && selectedSlide > 0) { selectedSlide--; syncInputs(); syncStrip(); drawPreview(); }
+    if (e.key === 'ArrowRight' && selectedSlide < 4) { selectedSlide++; syncInputs(); syncStrip(); drawPreview(); }
+  });
+}
+
+function removeImage() {
+  slides[selectedSlide].screenshot = null;
+  document.getElementById('imgInput').value = '';
+  syncInputs(); drawPreview(); drawThumbs();
+}
+
+// ─── Pro / Ko-fi System ────────────────────────────────────────────
+// Unlock code: APPSHOTS-PRO-2026
+// SHA-256 verified at runtime via Web Crypto — no plain-text in source
+const CODE_HASH   = '33a06289bb9eed946dc3ba9ac7c0bcfecac0b9fe42cc9ea0481c548a65ba48bd';
+const PRO_KEY     = 'appshots_pro';
+const DAILY_KEY   = 'appshots_day_';
+const FREE_LIMIT  = 3;
+
+function isPro() {
+  try { return localStorage.getItem(PRO_KEY) === '1'; } catch { return false; }
+}
+
+function todayKey() {
+  return DAILY_KEY + new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+function exportsToday() {
+  try { return parseInt(localStorage.getItem(todayKey()) || '0', 10); } catch { return 0; }
+}
+
+function incrementExports() {
+  try { localStorage.setItem(todayKey(), String(exportsToday() + 1)); } catch {}
+}
+
+function canExport() {
+  return isPro() || exportsToday() < FREE_LIMIT;
+}
+
+async function sha256hex(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function activateCode() {
+  const raw   = (document.getElementById('codeInput').value || '').trim().toUpperCase();
+  const errEl = document.getElementById('unlockError');
+  errEl.textContent = '';
+  if (!raw) { errEl.textContent = 'Ingresa el código que recibiste en Ko-fi.'; return; }
+
+  const hash = await sha256hex(raw);
+  if (hash === CODE_HASH) {
+    try { localStorage.setItem(PRO_KEY, '1'); } catch {}
+    closeModal();
+    updateProUI();
+    alert('✅ ¡Código válido! AppShots desbloqueado de por vida. Gracias por el apoyo ☕');
+  } else {
+    errEl.textContent = 'Código incorrecto. Revisa el mensaje de Ko-fi.';
+    document.getElementById('codeInput').select();
+  }
+}
+
+function updateProUI() {
+  const pro   = isPro();
+  const badge = document.getElementById('proBadge');
+  const count = document.getElementById('exportsCount');
+
+  if (pro) {
+    badge.textContent   = '✦ Pro';
+    badge.className     = 'pro-badge pro';
+    badge.style.cursor  = 'default';
+    badge.title         = 'AppShots Pro — ilimitado';
+    badge.onclick       = null;
+    count.style.display = 'none';
+  } else {
+    const used = exportsToday();
+    const left = Math.max(0, FREE_LIMIT - used);
+    badge.textContent   = '⚡ Free';
+    badge.className     = 'pro-badge free';
+    badge.style.cursor  = 'pointer';
+    badge.title         = 'Actualizar a Pro';
+    badge.onclick       = openModal;
+    count.style.display = '';
+    count.textContent   = `${left} export${left === 1 ? '' : 's'} restante${left === 1 ? '' : 's'} hoy`;
+    count.className     = 'exports-count' + (left <= 1 ? ' warning' : '');
+  }
+}
+
+function openModal() {
+  document.getElementById('proModal').classList.add('open');
+  document.getElementById('codeInput').value  = '';
+  document.getElementById('unlockError').textContent = '';
+  setTimeout(() => document.getElementById('codeInput').focus(), 120);
+}
+
+function closeModal() {
+  document.getElementById('proModal').classList.remove('open');
+}
+
+function handleModalBgClick(e) {
+  if (e.target === document.getElementById('proModal')) closeModal();
+}
+
+// ─── Export gate ────────────────────────────────────────────────────
+async function exportSlide(idx) {
+  if (!canExport()) {
+    const desc = document.getElementById('modalDesc');
+    desc.textContent = `Alcanzaste el límite de ${FREE_LIMIT} exports gratuitos por hoy. ¡Desbloquea Pro para exportar sin límites!`;
+    openModal();
+    return;
+  }
+  if (!isPro()) incrementExports();
+
+  const spec = DEVICES[device];
+  const cv = document.createElement('canvas');
+  cv.width = spec.w; cv.height = spec.h;
+  await renderSlide(cv, slides[idx], device);
+  cv.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = `slide-${idx + 1}-${device}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+    updateProUI();
+  }, 'image/png');
+}
+
+async function exportAll() {
+  if (!canExport()) {
+    const desc = document.getElementById('modalDesc');
+    desc.textContent = `Alcanzaste el límite de ${FREE_LIMIT} exports gratuitos por hoy. ¡Desbloquea Pro para exportar sin límites!`;
+    openModal();
+    return;
+  }
+
+  const btn = document.getElementById('btnDlAll');
+  const progress = document.getElementById('progress');
+  btn.disabled = true;
+  progress.style.display = 'block';
+  for (let i = 0; i < slides.length; i++) {
+    if (!canExport()) break;
+    progress.textContent = `Exportando ${i + 1} de 5...`;
+    await exportSlide(i);
+    await new Promise(r => setTimeout(r, 400));
+  }
+  progress.textContent = '✓ Listo';
+  setTimeout(() => { progress.style.display = 'none'; btn.disabled = false; updateProUI(); }, 2000);
+}
+
+// ─── Init ──────────────────────────────────────────────────────────
+buildUI();
+syncDeviceTabs();
+syncInputs();
+syncStrip();
+drawPreview();
+drawThumbs();
+updateProUI();
+
+// Keyboard: Escape closes modal
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+window.addEventListener('resize', () => { drawPreview(); });
+</script>
+</body>
+</html>
