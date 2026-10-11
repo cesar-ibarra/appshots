@@ -930,36 +930,31 @@
           : H * (isPhone ? 0.195 : 0.18);
         const fR = isPhone ? fW * 0.175 : fW * 0.055;
 
-        // ── Drop shadow ────────────────────────────────────────────────
-        ctx.save();
-        rrPath(ctx, fX, fY, fW, fH, fR);
-        ctx.shadowColor = 'rgba(0,0,0,0.38)';
-        ctx.shadowBlur = fW * 0.08;
-        ctx.shadowOffsetY = fW * 0.028;
-        ctx.fillStyle = '#1c1c1e';
-        ctx.fill();
-        ctx.restore();
-
         if (isPhone) {
-          // ── iPhone: outer titanium edge ring (da espesor real a las esquinas) ──
+          // ── iPhone: igual que el original — sin shadow, edge ring + body ──
           rrPath(ctx, fX - 1, fY - 1, fW + 2, fH + 2, fR + 1);
           ctx.fillStyle = '#48484a';
           ctx.fill();
-          // ── iPhone body ──
           rrPath(ctx, fX, fY, fW, fH, fR);
           ctx.fillStyle = '#1c1c1e';
           ctx.fill();
-          // ── Specular interior edge ──
           rrPath(ctx, fX, fY, fW, fH, fR);
           ctx.strokeStyle = 'rgba(255,255,255,0.06)';
           ctx.lineWidth = Math.max(1, fW * 0.004);
           ctx.stroke();
         } else {
-          // ── iPad: frame body ──
+          // ── iPad: drop shadow + frame body ──
+          ctx.save();
+          rrPath(ctx, fX, fY, fW, fH, fR);
+          ctx.shadowColor = 'rgba(0,0,0,0.38)';
+          ctx.shadowBlur = fW * 0.08;
+          ctx.shadowOffsetY = fW * 0.028;
+          ctx.fillStyle = '#1e1e20';
+          ctx.fill();
+          ctx.restore();
           rrPath(ctx, fX, fY, fW, fH, fR);
           ctx.fillStyle = '#1e1e20';
           ctx.fill();
-          // ── iPad: subtle top specular ──
           rrPath(ctx, fX, fY, fW, fH, fR);
           ctx.strokeStyle = 'rgba(255,255,255,0.10)';
           ctx.lineWidth = Math.max(1, fW * 0.003);
@@ -973,7 +968,7 @@
         const sY = fY + bz;
         const sW = fW - bz * 2;
         const sH = fH - bz * 2;
-        const sR = fR * 0.70;
+        const sR = fR * 0.88;  // restaurado al valor original
 
         // Screen background
         rrPath(ctx, sX, sY, sW, sH, sR);
@@ -1070,17 +1065,17 @@
             ctx.beginPath(); ctx.arc(camX - cr * 2.4, camY, cr * 0.22, 0, Math.PI * 2);
             ctx.fillStyle = '#383838'; ctx.fill();
 
-            // Buttons: top edge
+            // Portrait buttons
             const btW = Math.max(2, fH * 0.004);
             const btR = btW / 2;
-            // Power (top-right)
-            rrPath(ctx, fX + fW * 0.78, fY - btW, fW * 0.09, btW, btR);
+            // Power — borde superior, lado derecho (único en el top)
+            rrPath(ctx, fX + fW * 0.76, fY - btW, fW * 0.10, btW, btR);
             ctx.fillStyle = btn; ctx.fill();
-            // Volume up (top, slightly left)
-            rrPath(ctx, fX + fW * 0.58, fY - btW, fW * 0.065, btW, btR);
+            // Volume up — borde DERECHO, cerca de arriba
+            rrPath(ctx, fX + fW, fY + fH * 0.14, btW, fH * 0.075, btR);
             ctx.fillStyle = btn; ctx.fill();
-            // Volume down
-            rrPath(ctx, fX + fW * 0.655, fY - btW, fW * 0.065, btW, btR);
+            // Volume down — borde DERECHO, debajo del volume up
+            rrPath(ctx, fX + fW, fY + fH * 0.235, btW, fH * 0.075, btR);
             ctx.fillStyle = btn; ctx.fill();
 
           } else {
@@ -1103,16 +1098,17 @@
             ctx.beginPath(); ctx.arc(camX, camY - cr * 2.4, cr * 0.22, 0, Math.PI * 2);
             ctx.fillStyle = '#383838'; ctx.fill();
 
-            // Buttons: TOP edge for landscape
+            // Landscape buttons
             const btW = Math.max(2, fH * 0.004);
             const btR = btW / 2;
-            // Power (top-right corner)
-            rrPath(ctx, fX + fW * 0.87, fY - btW, fW * 0.07, btW, btR);
+            // Power — borde DERECHO, parte inferior
+            rrPath(ctx, fX + fW, fY + fH * 0.72, btW, fH * 0.10, btR);
             ctx.fillStyle = btn; ctx.fill();
-            // Volume (top-left area)
-            rrPath(ctx, fX + fW * 0.08, fY - btW, fW * 0.05, btW, btR);
+            // Volume up — borde INFERIOR, lado derecho
+            rrPath(ctx, fX + fW * 0.76, fY + fH, fW * 0.065, btW, btR);
             ctx.fillStyle = btn; ctx.fill();
-            rrPath(ctx, fX + fW * 0.14, fY - btW, fW * 0.05, btW, btR);
+            // Volume down — borde INFERIOR, a la izquierda del volume up
+            rrPath(ctx, fX + fW * 0.685, fY + fH, fW * 0.065, btW, btR);
             ctx.fillStyle = btn; ctx.fill();
           }
         }
