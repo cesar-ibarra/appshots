@@ -204,24 +204,24 @@
   <div class="modal-card" style="position:relative;">
     <button class="modal-close-btn" onclick="closeModal()" title="Cerrar">✕</button>
     <div class="modal-icon">☕</div>
-    <div class="modal-title">Desbloquea AppShots</div>
-    <div class="modal-desc" id="modalDesc">Apoya el proyecto con un café y exporta sin límites para siempre.</div>
+    <div class="modal-title">Unlock AppShots</div>
+    <div class="modal-desc" id="modalDesc">Support the project with a coffee and export without limits — forever.</div>
 
     <div class="modal-perks">
-      <div class="perk"><div class="perk-icon">♾️</div><span>Exportaciones ilimitadas, sin restricciones</span></div>
-      <div class="perk"><div class="perk-icon">📐</div><span>Todos los tamaños oficiales de App Store</span></div>
-      <div class="perk"><div class="perk-icon">🔒</div><span>Un solo pago — acceso de por vida</span></div>
+      <div class="perk"><div class="perk-icon">♾️</div><span>Unlimited exports, no restrictions</span></div>
+      <div class="perk"><div class="perk-icon">📐</div><span>All official App Store sizes</span></div>
+      <div class="perk"><div class="perk-icon">🔒</div><span>One-time payment — lifetime access</span></div>
     </div>
 
     <a class="btn-kofi" href="https://ko-fi.com/cesaribarra" target="_blank" rel="noopener">
-      ☕ &nbsp;Apoyar en Ko-fi — $9
+      ☕ &nbsp;Support on Ko-fi — $9
     </a>
 
-    <div class="divider-text">ya hice el pago</div>
+    <div class="divider-text">I already paid</div>
 
     <div class="unlock-row">
-      <input type="text" id="codeInput" placeholder="Ingresa tu código de activación" maxlength="30" autocomplete="off" spellcheck="false">
-      <button class="btn primary" onclick="activateCode()">Activar</button>
+      <input type="text" id="codeInput" placeholder="Enter your activation code" maxlength="30" autocomplete="off" spellcheck="false">
+      <button class="btn primary" onclick="activateCode()">Activate</button>
     </div>
     <div class="unlock-error" id="unlockError"></div>
   </div>
@@ -831,7 +831,7 @@ async function activateCode() {
     updateProUI();
     alert('✅ ¡Código válido! AppShots desbloqueado de por vida. Gracias por el apoyo ☕');
   } else {
-    errEl.textContent = 'Código incorrecto. Revisa el mensaje de Ko-fi.';
+    errEl.textContent = 'Invalid code. Check your Ko-fi confirmation message.';
     document.getElementById('codeInput').select();
   }
 }
@@ -881,7 +881,7 @@ function handleModalBgClick(e) {
 async function exportSlide(idx) {
   if (!canExport()) {
     const desc = document.getElementById('modalDesc');
-    desc.textContent = `Alcanzaste el límite de ${FREE_LIMIT} exports gratuitos por hoy. ¡Desbloquea Pro para exportar sin límites!`;
+    desc.textContent = `You've reached the ${FREE_LIMIT} free exports limit for today. Unlock Pro to export without limits!`;
     openModal();
     return;
   }
@@ -905,7 +905,7 @@ async function exportSlide(idx) {
 async function exportAll() {
   if (!canExport()) {
     const desc = document.getElementById('modalDesc');
-    desc.textContent = `Alcanzaste el límite de ${FREE_LIMIT} exports gratuitos por hoy. ¡Desbloquea Pro para exportar sin límites!`;
+    desc.textContent = `You've reached the ${FREE_LIMIT} free exports limit for today. Unlock Pro to export without limits!`;
     openModal();
     return;
   }
