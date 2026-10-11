@@ -936,20 +936,35 @@
         ctx.shadowColor = 'rgba(0,0,0,0.38)';
         ctx.shadowBlur = fW * 0.08;
         ctx.shadowOffsetY = fW * 0.028;
-        ctx.fillStyle = '#1c1c1e';  // must be opaque for shadow to render
+        ctx.fillStyle = '#1c1c1e';
         ctx.fill();
         ctx.restore();
 
-        // ── Frame body ─────────────────────────────────────────────────
-        rrPath(ctx, fX, fY, fW, fH, fR);
-        ctx.fillStyle = isPhone ? '#1c1c1e' : '#1e1e20';
-        ctx.fill();
-
-        // ── Subtle top specular ────────────────────────────────────────
-        rrPath(ctx, fX, fY, fW, fH, fR);
-        ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-        ctx.lineWidth = Math.max(1, fW * 0.003);
-        ctx.stroke();
+        if (isPhone) {
+          // ── iPhone: outer titanium edge ring (da espesor real a las esquinas) ──
+          rrPath(ctx, fX - 1, fY - 1, fW + 2, fH + 2, fR + 1);
+          ctx.fillStyle = '#48484a';
+          ctx.fill();
+          // ── iPhone body ──
+          rrPath(ctx, fX, fY, fW, fH, fR);
+          ctx.fillStyle = '#1c1c1e';
+          ctx.fill();
+          // ── Specular interior edge ──
+          rrPath(ctx, fX, fY, fW, fH, fR);
+          ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+          ctx.lineWidth = Math.max(1, fW * 0.004);
+          ctx.stroke();
+        } else {
+          // ── iPad: frame body ──
+          rrPath(ctx, fX, fY, fW, fH, fR);
+          ctx.fillStyle = '#1e1e20';
+          ctx.fill();
+          // ── iPad: subtle top specular ──
+          rrPath(ctx, fX, fY, fW, fH, fR);
+          ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+          ctx.lineWidth = Math.max(1, fW * 0.003);
+          ctx.stroke();
+        }
 
         // ── Screen area ────────────────────────────────────────────────
         // iPad Pro M4 has nearly uniform ultra-thin bezels on all sides
