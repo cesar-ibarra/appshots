@@ -248,9 +248,50 @@
         display: block;
       }
 
+      .thumb-wrap .thumb-del {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        background: rgba(180, 30, 30, 0.82);
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        font-size: 12px;
+        line-height: 1;
+        padding: 2px 6px;
+        cursor: pointer;
+        font-family: var(--font);
+        display: none;
+      }
+
+      .thumb-wrap:hover .thumb-del {
+        display: block;
+      }
+
       .thumb-wrap.selected {
         outline: 2.5px solid var(--accent);
         outline-offset: 2px;
+      }
+
+      .strip-add {
+        flex-shrink: 0;
+        cursor: pointer;
+        border-radius: var(--radius-sm);
+        border: 1.5px dashed var(--border2);
+        background: transparent;
+        color: var(--text2);
+        font-size: 22px;
+        font-family: var(--font);
+        width: 52px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: border-color 0.12s, color 0.12s;
+      }
+
+      .strip-add:hover {
+        border-color: var(--accent);
+        color: var(--accent);
       }
 
       /* Preview area */
@@ -1221,6 +1262,92 @@
           el.classList.toggle('selected', i === selectedSlide));
       }
 
+      function updateExportLabel() {
+        const btn = document.getElementById('btnDlAll');
+        if (btn) btn.textContent = `↓ Exportar los ${slides.length} slides`;
+      }
+
+      function buildStrip() {
+        const strip = document.getElementById('strip');
+        strip.innerHTML = '';
+        thumbCanvases = [];
+
+        slides.forEach((_, i) => {
+          const wrap = document.createElement('div');
+          wrap.className = 'thumb-wrap';
+          wrap.onclick = () => { selectedSlide = i; syncInputs(); syncStrip(); drawPreview(); };
+
+          const cv = document.createElement('canvas');
+          cv.style.display = 'block';
+          cv.style.borderRadius = '6px';
+          thumbCanvases.push(cv);
+          wrap.appendChild(cv);
+
+          const lbl = document.createElement('div');
+          lbl.className = 'thumb-overlay';
+          lbl.textContent = i + 1;
+          wrap.appendChild(lbl);
+
+          const dlBtn = document.createElement('button');
+          dlBtn.className = 'thumb-dl';
+          dlBtn.textContent = '↓';
+          dlBtn.title = 'Descargar';
+          dlBtn.onclick = e => { e.stopPropagation(); exportSlide(i); };
+          wrap.appendChild(dlBtn);
+
+          if (slides.length > 1) {
+            const delBtn = document.createElement('button');
+            delBtn.className = 'thumb-del';
+            delBtn.textContent = '×';
+            delBtn.title = 'Eliminar slide';
+            delBtn.onclick = e => { e.stopPropagation(); removeSlide(i); };
+            wrap.appendChild(delBtn);
+          }
+
+          strip.appendChild(wrap);
+        });
+
+        // "+" add button
+        const addBtn = document.createElement('button');
+        addBtn.className = 'strip-add';
+        addBtn.textContent = '+';
+        addBtn.title = 'Agregar slide';
+        addBtn.onclick = () => addSlide();
+        strip.appendChild(addBtn);
+
+        syncStrip();
+        updateExportLabel();
+      }
+
+      function addSlide() {
+        // Duplicate current slide (without screenshot) as starting point
+        const cur = slides[selectedSlide];
+        const BG_OPTIONS = ['#D6EAF8', '#D5F5E3', '#FDEBD0', '#F4ECF7', '#FDEDEC'];
+        const newSlide = {
+          headline: 'Tu app,\nen acción',
+          subtitle: 'Describe aquí tu característica.',
+          bg: BG_OPTIONS[slides.length % BG_OPTIONS.length],
+          textColor: cur.textColor,
+          screenshot: null
+        };
+        slides.push(newSlide);
+        selectedSlide = slides.length - 1;
+        buildStrip();
+        syncInputs();
+        drawPreview();
+        drawThumbs();
+      }
+
+      function removeSlide(i) {
+        if (slides.length <= 1) return;
+        slides.splice(i, 1);
+        if (selectedSlide >= slides.length) selectedSlide = slides.length - 1;
+        buildStrip();
+        syncInputs();
+        drawPreview();
+        drawThumbs();
+      }
+
       function syncDeviceTabs() {
         document.querySelectorAll('.device-tab').forEach(btn =>
           btn.classList.toggle('active', btn.dataset.dev === device));
@@ -1277,33 +1404,7 @@
         });
 
         // Slide strip
-        const strip = document.getElementById('strip');
-        thumbCanvases = [];
-        slides.forEach((_, i) => {
-          const wrap = document.createElement('div');
-          wrap.className = 'thumb-wrap';
-          wrap.onclick = () => { selectedSlide = i; syncInputs(); syncStrip(); drawPreview(); };
-
-          const cv = document.createElement('canvas');
-          cv.style.display = 'block';
-          cv.style.borderRadius = '6px';
-          thumbCanvases.push(cv);
-          wrap.appendChild(cv);
-
-          const lbl = document.createElement('div');
-          lbl.className = 'thumb-overlay';
-          lbl.textContent = i + 1;
-          wrap.appendChild(lbl);
-
-          const dlBtn = document.createElement('button');
-          dlBtn.className = 'thumb-dl';
-          dlBtn.textContent = '↓';
-          dlBtn.title = 'Descargar';
-          dlBtn.onclick = e => { e.stopPropagation(); exportSlide(i); };
-          wrap.appendChild(dlBtn);
-
-          strip.appendChild(wrap);
-        });
+        buildStrip();
 
         buildSwatches('bgSwatches', BG_PRESETS, 'bg');
         buildSwatches('textSwatches', TEXT_PRESETS, 'textColor');
@@ -1351,7 +1452,7 @@
         document.addEventListener('keydown', e => {
           if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
           if (e.key === 'ArrowLeft' && selectedSlide > 0) { selectedSlide--; syncInputs(); syncStrip(); drawPreview(); }
-          if (e.key === 'ArrowRight' && selectedSlide < 4) { selectedSlide++; syncInputs(); syncStrip(); drawPreview(); }
+          if (e.key === 'ArrowRight' && selectedSlide < slides.length - 1) { selectedSlide++; syncInputs(); syncStrip(); drawPreview(); }
         });
       }
 
